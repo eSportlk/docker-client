@@ -1,16 +1,30 @@
 package controllers
 
 import (
-	"../models"
+	"context"
 	"encoding/json"
 	"net/http"
+
+	"../adapters"
+	"github.com/docker/docker/api/types"
 )
 
 type HandleContainerList struct {
 }
 
-func (HandleContainerList) ServeHTTP(w http.ResponseWriter, r *http.Request){
-	var images map[string]models.Container = make(map[string]models.Container)
-	response, _ := json.Marshal(images)
+func (HandleContainerList) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+
+	cli := adapters.GetClient()
+	var containersMap map[string]types.Container = make(map[string]types.Container)
+
+	containers, err := cli.ContainerList(context.Background(), types.ContainerListOptions{})
+	if err != nil {
+		panic(err)
+	}
+	for _, container := range containers {
+		containersMap[container.ID[:10]] = container
+	}
+
+	response, _ := json.Marshal(containersMap)
 	_, _ = w.Write(response)
 }
