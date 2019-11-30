@@ -15,9 +15,9 @@ type HandleContainerList struct {
 func (HandleContainerList) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	cli := adapters.GetClient()
-	var containersMap map[string]types.Container = make(map[string]types.Container)
+	var containersMap = make(map[string]types.Container)
 
-	containers, err := cli.ContainerList(context.Background(), types.ContainerListOptions{})
+	containers, err := cli.ContainerList(context.Background(), types.ContainerListOptions{All:true})
 	if err != nil {
 		panic(err)
 	}

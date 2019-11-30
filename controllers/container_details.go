@@ -1,7 +1,8 @@
 package controllers
 
 import (
-	"../models"
+	"../adapters"
+	"context"
 	"encoding/json"
 	"net/http"
 )
@@ -10,7 +11,12 @@ type HandleContainerDetails struct {
 }
 
 func (HandleContainerDetails) ServeHTTP(w http.ResponseWriter, r *http.Request){
-	var images map[string]models.Container = make(map[string]models.Container)
-	response, _ := json.Marshal(images)
+	cli := adapters.GetClient()
+	var containerId string = "abc";
+	var image, err = cli.ContainerInspect(context.Background(), containerId)
+	if err!=nil{
+		panic(err)
+	}
+	response, _ := json.Marshal(image)
 	_, _ = w.Write(response)
 }

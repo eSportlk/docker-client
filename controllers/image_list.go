@@ -1,8 +1,10 @@
 package controllers
 
 import (
-	"../models"
+	"../adapters"
+	"context"
 	"encoding/json"
+	"github.com/docker/docker/api/types"
 	"net/http"
 )
 
@@ -10,7 +12,17 @@ type HandleImageList struct {
 }
 
 func (HandleImageList) ServeHTTP(w http.ResponseWriter, r *http.Request){
-	var images map[string]models.Image = make(map[string]models.Image)
-	response, _ := json.Marshal(images)
+	cli := adapters.GetClient()
+	var imagesMap = make(map[string]types.ImageSummary)
+
+	images, err := cli.ImageList(context.Background(), types.ImageListOptions{})
+	if err != nil {
+		panic(err)
+	}
+	for _, image := range images {
+		imagesMap[image.ID[:10]] = image
+	}
+
+	response, _ := json.Marshal(imagesMap)
 	_, _ = w.Write(response)
 }
