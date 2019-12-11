@@ -17,7 +17,7 @@ func (HandleContainerDetails) ServeHTTP(w http.ResponseWriter, r *http.Request){
 	var containerId = mux.Vars(r)["id"]
 	var container, err = cli.ContainerInspect(context.Background(), containerId)
 	if err!=nil{
-		errResp := models.ErrorResponse{
+		errResp := models.Response{
 			Message: err.Error(),
 			Code:    400,
 		}
