@@ -1,6 +1,7 @@
 package main
 
 import (
+	"./controllers"
 	"./router"
 	"fmt"
 	"net/http"
@@ -19,7 +20,7 @@ func main() {
 	fmt.Println("server is starting")
 
 	err := server.ListenAndServe()
-
+	go controllers.Echo()
 	if err!=nil{
 		panic(err)
 	}
