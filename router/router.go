@@ -21,7 +21,7 @@ func GetRouter() *mux.Router {
 	Router.Handle("/containers/{id}/pause", controllers.HandleContainerPause{})
 
 	//websocket
-	Router.HandleFunc("/longlat", controllers.LongLatHandler).Methods("POST")
+	//Router.HandleFunc("/longlat", controllers.LongLatHandler).Methods("POST")
 	Router.HandleFunc("/ws", controllers.WsHandler)
 	return Router
 }

@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/docker/docker/api/types"
-	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
 	"io"
 	"log"
@@ -15,11 +14,6 @@ import (
 )
 
 type HandleImagePull struct {
-}
-
-type longLatStruct struct {
-	Long float64 `json:"longitude"`
-	Lat  float64 `json:"latitude"`
 }
 
 type Event struct {
@@ -32,20 +26,36 @@ type Event struct {
 	} `json:"progressDetails"`
 }
 
+type ImageData struct {
+	Name string `json:"name"`
+}
+
 var clients = make(map[*websocket.Conn]bool)
-var broadcast = make(chan *longLatStruct)
+var broadcast = make(chan *Event)
 var upgrade = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool {
 		return true
 	},
 }
+var echoValue = false
 
 func (HandleImagePull) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	cli := adapters.GetClient()
 	ctx := context.Background()
-	imageName := mux.Vars(r)["image"]
+	decoder := json.NewDecoder(r.Body)
+	var imageData ImageData
+	err := decoder.Decode(&imageData)
 
-	events, err := cli.ImagePull(ctx, imageName, types.ImagePullOptions{})
+	if err != nil {
+		panic(err)
+	}
+
+	if !echoValue {
+		go Echo()
+		echoValue = true
+	}
+
+	events, err := cli.ImagePull(ctx, imageData.Name, types.ImagePullOptions{})
 	if err != nil {
 		panic(err)
 	}
@@ -61,35 +71,30 @@ func (HandleImagePull) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			}
 			panic(err)
 		}
+
+		var eventData Event
+
+		if err := json.NewDecoder(r.Body).Decode(&eventData); err != nil {
+			log.Printf("ERROR: %s", err)
+		}
+		go write(event)
 		fmt.Printf("EVENT: %+v\n", event)
 	}
 
 	if event != nil {
-		if strings.Contains(event.Status, fmt.Sprintf("Downloaded new image of %s", imageName)){
+		if strings.Contains(event.Status, fmt.Sprintf("Downloaded new image of %s", imageData.Name)) {
 			fmt.Println("new")
 		}
 
-		if strings.Contains(event.Status, fmt.Sprintf("Image is uptodate for %s", imageName)){
+		if strings.Contains(event.Status, fmt.Sprintf("Image is uptodate for %s", imageData.Name)) {
 			fmt.Println("up-to-date")
 		}
 	}
 
 }
 
-func LongLatHandler(w http.ResponseWriter, r *http.Request) {
-	var coodinates longLatStruct
-	if err := json.NewDecoder(r.Body).Decode(&coodinates); err != nil {
-		log.Printf("ERROR: %s", err)
-	}
-	defer r.Body.Close()
-	go write(&coodinates)
-	if len(clients) > 0 {
-		go Echo()
-	}
-}
-
-func write(coord *longLatStruct) {
-	broadcast <- coord
+func write(event *Event) {
+	broadcast <- event
 }
 
 func WsHandler(w http.ResponseWriter, r *http.Request) {
@@ -103,9 +108,9 @@ func WsHandler(w http.ResponseWriter, r *http.Request) {
 func Echo() {
 	for {
 		val := <-broadcast
-		latlong := fmt.Sprintf("%f %f", val.Lat, val.Long)
+		event := fmt.Sprintf("%s %s %d %d %s", val.Status, val.Progress, val.ProgressDetails.Current, val.ProgressDetails.Total, val.Error)
 		for client := range clients {
-			err := client.WriteMessage(websocket.TextMessage, []byte(latlong))
+			err := client.WriteMessage(websocket.TextMessage, []byte(event))
 			if err != nil {
 				log.Printf("websocket error: %s", err)
 				client.Close()
